@@ -20,12 +20,146 @@
 
 const AreaPlansDefaultToolName = 'area-plans-default-tool';
 const EDIT2D_EXT_ID = 'Autodesk.Edit2D';
+const MODE_CHANGED_EVENT = 'modeChanged';
+
+function initializeShapeWidget(scope) {
+    class ShapeEditorWidgetButton extends Autodesk.Viewing.EventDispatcher {
+        constructor(parent, iconClass) {
+            super();
+
+            // html content to be shown
+            const _document = this.getDocument();
+            const container = _document.createElement('button');
+            const icon = _document.createElement('a');
+            parent.container.appendChild(container);
+
+            this.container = container;
+            this.icon = icon;
+            this.parent = parent;
+
+            container.classList.add('btn');
+            icon.classList.add('fa');
+            container.appendChild(icon);
+            this.setIcon(iconClass);
+
+            container.onclick = (event) => {
+                event.stopPropagation();
+                event.preventDefault();
+
+                this.fireEvent('click');
+            };
+        }
+
+        setIcon(iconClass) {
+            if (this.iconClass)
+                this.icon.classList.remove(this.iconClass);
+
+            this.iconClass = iconClass;
+            this.icon.classList.add(iconClass);
+        }
+    }
+
+    Autodesk.Viewing.GlobalManagerMixin.call(ShapeEditorWidgetButton.prototype);
+
+    class ShapeEditorWidget extends Autodesk.Edit2D.CanvasGizmo {
+        constructor(shape, utilities) {
+            let visible = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true; let className = arguments.length > 3 ? arguments[3] : undefined;
+            super(utilities.layer, visible, className);
+
+            // Use measure-tool styles by default
+            this.container.classList.add('edit2d-label');
+            this.container.classList.add('visible');
+            this.container.style.width = '100px';//'150px';
+            this.container.style.height = '20px';
+            this.container.style.pointerEvents = 'auto';
+
+            shape.editorWidget = this;
+            this.shape = shape;
+            this.utilities = utilities;
+
+            // Optional: Shift label by a couple of pixels.
+            this.pixelOffset = new THREE.Vector2();
+            this.boxSize = new THREE.Vector2();
+            this.initialize();
+
+            this.update();
+        }
+
+        initialize() {
+            // this.container.appendChild(btn1);
+            const editBtn = new ShapeEditorWidgetButton(this, 'fa-pencil-alt');
+            editBtn.addEventListener('click', () => {
+                if (this.utilities.parentExtension.isEditing) {
+                    this.utilities.finishEditingShape();
+                    editBtn.setIcon('fa-pencil-alt');
+                } else {
+                    this.utilities.editShape(this.shape);
+                    editBtn.setIcon('fa-save');
+                }
+            });
+
+            const deleteBtn = new ShapeEditorWidgetButton(this, 'fa-trash-alt');
+            deleteBtn.addEventListener('click', () => {
+                this.utilities.destroy(this.shape);
+            });
+        }
+
+        terminate() {
+            if (!this.container)
+                return;
+
+            delete this.shape.editorWidget;
+            this.shape.editorWidget = null;
+
+            // while (this.container.firstChild) {
+            //     this.container.removeChild(this.container.firstChild);
+            // }
+            // this.container.parentElement.removeChild(this.container);
+            // delete this.container;
+            // this.container = null;
+            this.removeFromCanvas();
+        }
+
+        update() {
+            if (this.shape) {
+                // Set it to visible (in case polygon was null before)
+                this.container.style.visibility = 'visible';
+
+                this.shape.computeBBox();
+                this.shape.bbox.getCenter(this.layerPos);
+                this.shape.bbox.getSize(this.boxSize);
+
+                this.layerPos.x += this.boxSize.x / 2;
+
+                // Optional: Shift by a few pixels
+                if (this.pixelOffset) {
+                    const toUnits = this.layer.getUnitsPerPixel();
+                    const shiftX = this.pixelOffset.x * toUnits;
+                    const shiftY = this.pixelOffset.y * toUnits;
+                    this.layerPos.x += shiftX;
+                    this.layerPos.y += shiftY;
+                }
+
+                super.update();
+            } else {
+                this.container.style.visibility = 'hidden';
+            }
+        }
+
+        setShape(shape) {
+            this.shape = shape;
+            this.update();
+        }
+    }
+
+    scope.ShapeEditorWidget = ShapeEditorWidget;
+}
 
 class AreaPlansUtilities {
-    #viewer = null;
+    constructor() { }
 
-    constructor(viewer) {
-        this.#viewer = viewer;
+    get #viewer() {
+        return this.parentExtension.viewer;
     }
 
     get #edit2dExt() {
@@ -40,6 +174,10 @@ class AreaPlansUtilities {
         return this.#edit2dExt?.defaultContext;
     }
 
+    get undoStack() {
+        return this.context?.undoStack;
+    }
+
     get layer() {
         return this.context?.layer;
     }
@@ -48,9 +186,17 @@ class AreaPlansUtilities {
         return this.context?.selection;
     }
 
-    async initialize() {
+    async initialize(parentExtension) {
+        if (this.parentExtension) {
+            delete this.parentExtension;
+            this.parentExtension = null;
+        }
+
+        this.parentExtension = parentExtension;
+
         let ext = await this.#viewer.loadExtension(EDIT2D_EXT_ID);
         ext.registerDefaultTools();
+        initializeShapeWidget(globalThis);
 
         return true;
     }
@@ -59,7 +205,27 @@ class AreaPlansUtilities {
         let ext = this.#viewer.getExtension(EDIT2D_EXT_ID);
         ext.unregisterDefaultTools();
 
+        delete this.parentExtension;
+        this.parentExtension = null;
+
         return true;
+    }
+
+    attachEditorWidget(shape) {
+        if (!(shape instanceof Autodesk.Edit2D.Shape))
+            throw 'Invalid Shape type';
+
+        const editorWidget = new ShapeEditorWidget(shape, this);
+        this.layer.addCanvasGizmo(editorWidget);
+    }
+
+    detachEditorWidget(shape) {
+        if (!(shape instanceof Autodesk.Edit2D.Shape))
+            throw 'Invalid Shape type';
+
+        let { editorWidget } = shape;
+        // this.layer.removeCanvasGizmo(editorWidget);
+        editorWidget.terminate();
     }
 
     changeTool(toolName) {
@@ -80,7 +246,66 @@ class AreaPlansUtilities {
             return false;
         }
 
-        return controller.activateTool(toolName);
+        let result = controller.activateTool(toolName);
+
+        return result;
+    }
+
+    clearLayer(enableUndo = true) {
+        this.context?.clearLayer(enableUndo);
+    }
+
+    addShape(shape) {
+        if (!(shape instanceof Autodesk.Edit2D.Shape))
+            throw 'Invalid Shape type';
+
+        this.context.addShape(shape);
+    }
+
+    addShapes(shapes) {
+        try {
+            shapes = shapes || [];
+
+            shapes.forEach(addShape);
+        } catch {
+
+        } finally {
+            this.#edit2dExt?.undoStack.clear();
+        }
+    }
+
+    removeShape(shape) {
+        if (!(shape instanceof Autodesk.Edit2D.Shape))
+            throw 'Invalid Shape type';
+
+        this.context.removeShape(shape);
+    }
+
+    serialize(shape, exportStyle = true) {
+        if (!(shape instanceof Autodesk.Edit2D.Shape))
+            throw 'Invalid Shape type';
+
+        return shape.toSVG({ exportStyle })
+    }
+
+    deserialize(svg) {
+        if (!svg || (typeof svg !== 'string'))
+            throw 'Invalid SVG';
+
+        let shape = Autodesk.Edit2D.Shape.fromSVG(svg);
+        this.addShape(shape);
+        return shape;
+    }
+
+    serializeAll(exportStyle = true) {
+        return this.layer.shapes.map(shape => this.serialize(shape, exportStyle));
+    }
+
+    deserializeAll(svgs) {
+        if (!svgs || svgs.length <= 0)
+            throw 'Invalid SVG array';
+
+        return svgs.map(deserialize);
     }
 
     /**
@@ -100,6 +325,37 @@ class AreaPlansUtilities {
         const shape = this.layer.shapes.find(shape => shape.id == shapeId);
 
         shape.selectable = true;
+        return shape;
+    }
+
+    editShape(shape) {
+        if (!(shape instanceof Autodesk.Edit2D.Shape))
+            throw 'Invalid Shape type';
+
+        this.#viewer.toolController.setIsLocked(false);
+        this.parentExtension.leaveViewingMode();
+        this.parentExtension.enterEditMode();
+        shape = this.thawShape(shape.id);
+        this.select([shape]);
+    }
+
+    finishEditingShape() {
+        this.#viewer.toolController.setIsLocked(false);
+        this.parentExtension.leaveEditMode();
+    }
+
+    destroy(shape) {
+        if (!(shape instanceof Autodesk.Edit2D.Shape))
+            throw 'Invalid Shape type';
+
+        this.detachEditorWidget(shape);
+        this.removeShape(shape);
+
+        // Leave edit mode immediately if ext is under editing mode
+        if (this.parentExtension.isEditing) {
+            this.#viewer.toolController.setIsLocked(false);
+            this.parentExtension.leaveEditMode();
+        }
     }
 
     select(shapes) {
@@ -181,6 +437,10 @@ class AreaPlansDefaultTool extends Autodesk.Viewing.ToolInterface {
 }
 
 class AreaPlansExtension extends Autodesk.Viewing.Extension {
+    #isViewing = false;
+    #isCreating = false;
+    #isEditing = false;
+
     constructor(viewer, options) {
         super(viewer, options);
     }
@@ -189,26 +449,76 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
         return this.utilities?.defaultTools;
     }
 
+    get isCreating() {
+        return this.#isCreating;
+    }
+
+    get isEditing() {
+        return this.#isEditing;
+    }
+
+    get isViewing() {
+        return this.#isViewing;
+    }
+
+    #onShapeAdded = (event) => {
+        if (!(event.action instanceof Autodesk.Edit2D.Actions.AddShape) || !event.action.shape)
+            return;
+
+        let isWidgetCreated = this.utilities.layer.canvasGizmos.some(gizmos => gizmos instanceof ShapeEditorWidget && (gizmos.shape.id == event.action.shape.id));
+        if (isWidgetCreated)
+            return;
+
+        this.utilities.attachEditorWidget(event.action.shape);
+    };
+
     enterCreateMode() {
         this.leaveViewingMode();
         this.utilities.changeTool(this.#defaultTools.polygonTool.getName());
+        this.utilities.undoStack.addEventListener(
+            Autodesk.Edit2D.UndoStack.AFTER_ACTION,
+            this.#onShapeAdded
+        );
+
+        this.#isCreating = true;
+        this.#isViewing = false;
+        this.#isEditing = false;
+
+        this.dispatchEvent({ type: MODE_CHANGED_EVENT, mode: 'create' });
     }
 
     leaveCreateMode() {
+        this.utilities.undoStack.addEventListener(
+            Autodesk.Edit2D.UndoStack.AFTER_ACTION,
+            this.#onShapeAdded
+        );
+
         this.enterViewingMode();
+        this.#isCreating = false;
     }
 
     enterEditMode() {
         this.leaveViewingMode();
         this.utilities.changeTool(this.#defaultTools.polygonEditTool.getName());
+        this.#isEditing = true;
+        this.#isCreating = false;
+        this.#isViewing = false;
+
+        this.dispatchEvent({ type: MODE_CHANGED_EVENT, mode: 'edit' });
     }
 
     leaveEditMode() {
         this.enterViewingMode();
+        this.#isEditing = false;
     }
 
     enterViewingMode() {
         this.utilities.changeTool(this.viewingTool.getName());
+        this.#isViewing = true;
+        this.#isEditing = false;
+        this.#isCreating = false;
+
+        this.dispatchEvent({ type: MODE_CHANGED_EVENT, mode: 'viewing' });
     }
 
     leaveViewingMode() {
@@ -221,13 +531,39 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
 
         controller.deactivateTool(activeTool.getName());
         activeTool = null;
+        this.#isViewing = false;
 
         return true;
     }
 
+    toggleCreateMode() {
+        if (this.#isCreating)
+            return this.leaveCreateMode();
+
+        this.enterCreateMode();
+    }
+
+    toggleEditMode() {
+        if (this.#isEditing)
+            return this.leaveEditMode();
+
+        this.enterEditMode();
+    }
+
+    toggleViewingMode() {
+        if (this.#isViewing)
+            return this.leaveViewingMode();
+
+        this.enterViewingMode();
+    }
+
+    clearLayer(enableUndo = true) {
+        this.utilities.clearLayer(enableUndo);
+    }
+
     async initialize() {
-        const utilities = new AreaPlansUtilities(this.viewer);
-        await utilities.initialize();
+        const utilities = new AreaPlansUtilities();
+        await utilities.initialize(this);
         this.utilities = utilities;
 
         const tool = new AreaPlansDefaultTool(utilities);
@@ -238,6 +574,10 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
     terminate() {
         if (!this.viewingTool)
             return;
+
+        this.#isCreating = false;
+        this.#isEditing = false;
+        this.#isViewing = false;
 
         this.viewer.toolController.deactivateTool(AreaPlansDefaultToolName);
         this.viewer.toolController.deregisterTool(this.viewingTool);
@@ -260,4 +600,9 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
     }
 }
 
+AutodeskNamespace('Autodesk.Das.AreaPlans');
+Autodesk.Das.AreaPlans.AreaPlansExtension = AreaPlansExtension;
+Autodesk.Das.AreaPlans.MODE_CHANGED_EVENT = MODE_CHANGED_EVENT;
+
+Autodesk.Viewing.EventDispatcher.prototype.apply(AreaPlansExtension.prototype);
 Autodesk.Viewing.theExtensionManager.registerExtension('Autodesk.Das.AreaPlansExtension', AreaPlansExtension);

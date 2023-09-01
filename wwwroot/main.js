@@ -4,7 +4,39 @@ initViewer(document.getElementById('preview')).then(viewer => {
     const urn = window.location.hash?.substring(1);
     setupModelSelection(viewer, urn);
     setupModelUpload(viewer);
+    setupAreaPlans(viewer);
 });
+
+function setupAreaPlans(viewer) {
+    const manageAreaPlansBtn = document.getElementById('manageAreaPlans');
+    const addAreaPlansBtn = document.getElementById('addAreaPlans');
+    const saveAreaPlanChangesBtn = document.getElementById('saveAreaPlanChanges');
+    const cancelAreaPlanChangesBtn = document.getElementById('cancelAreaPlanChanges');
+
+    manageAreaPlansBtn.onclick = () => {
+        addAreaPlansBtn.style.display = '';
+        saveAreaPlanChangesBtn.style.display = '';
+        cancelAreaPlanChangesBtn.style.display = '';
+    };
+
+    cancelAreaPlanChangesBtn.onclick = () => {
+        addAreaPlansBtn.style.display = 'none';
+        saveAreaPlanChangesBtn.style.display = 'none';
+        cancelAreaPlanChangesBtn.style.display = 'none';
+    };
+
+    saveAreaPlanChangesBtn.onclick = () => {
+        addAreaPlansBtn.style.display = 'none';
+        saveAreaPlanChangesBtn.style.display = 'none';
+        cancelAreaPlanChangesBtn.style.display = 'none';
+    };
+
+    addAreaPlansBtn.onclick = function () {
+        let areaPlansExt = viewer.getExtension('Autodesk.Das.AreaPlansExtension');
+
+        areaPlansExt.toggleCreateMode();
+    };
+}
 
 async function setupModelSelection(viewer, selectedUrn) {
     const dropdown = document.getElementById('models');
@@ -86,8 +118,24 @@ async function onModelSelected(viewer, urn) {
                 break;
             default:
                 clearNotification();
-                loadModel(viewer, urn);
-                break; 
+                loadModel(viewer, urn).then(() => {
+                    const manageAreaPlansBtn = document.getElementById('manageAreaPlans');
+                    manageAreaPlansBtn.style.display = '';
+
+                    let areaPlansExt = viewer.getExtension('Autodesk.Das.AreaPlansExtension');
+                    areaPlansExt.addEventListener(
+                        Autodesk.Das.AreaPlans.MODE_CHANGED_EVENT,
+                        (event) => {
+                            const addAreaPlansBtn = document.getElementById('addAreaPlans');
+
+                            if (event.mode == 'create') {
+                                addAreaPlansBtn.innerText = 'Exit Adding Area';
+                            } else {
+                                addAreaPlansBtn.innerText = 'Add Area';
+                            }
+                        });
+                });
+                break;
         }
     } catch (err) {
         alert('Could not load model. See the console for more details.');

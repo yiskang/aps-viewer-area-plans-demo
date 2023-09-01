@@ -7,6 +7,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="icon" type="image/x-icon" href="https://cdn.autodesk.io/favicon.ico">
     <link rel="stylesheet" href="https://developer.api.autodesk.com/modelderivative/v2/viewers/7.*/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/all.min.css" />
     <link rel="stylesheet" href="/main.css">
     <title>Autodesk Platform Services: Simple Viewer</title>
 </head>
@@ -19,7 +20,16 @@
         <button id="upload" title="Upload New Model">Upload</button>
         <input style="display: none" type="file" id="input">
     </div>
-    <div id="toolbar"></div>
+    <div id="toolbar">
+        <div>
+            <button id="manageAreaPlans" style="display: none" title="Add or Edit Area Plan Markups">Manage Area Plans</button>
+            <button id="addAreaPlans" style="display: none;" title="Add New Area Plan Markups">Add Area</button>
+        </div>
+        <div>
+            <button id="saveAreaPlanChanges" style="display: none" title="Save changes made on area plans">Save</button>
+            <button id="cancelAreaPlanChanges" style="display: none" title="Discard changes made on area plans">Cancel</button>
+        </div>
+    </div>
     <div id="preview"></div>
     <div id="overlay"></div>
     <script src="https://developer.api.autodesk.com/modelderivative/v2/viewers/7.*/viewer3D.js"></script>
