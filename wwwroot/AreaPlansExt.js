@@ -23,6 +23,9 @@ const EDIT2D_EXT_ID = 'Autodesk.Edit2D';
 const MODE_CHANGED_EVENT = 'modeChanged';
 
 function initializeShapeWidget(scope) {
+    /**
+     * Toolbar button for area plan markup
+     */
     class ShapeEditorWidgetButton extends Autodesk.Viewing.EventDispatcher {
         constructor(parent, iconClass) {
             super();
@@ -57,10 +60,17 @@ function initializeShapeWidget(scope) {
             this.iconClass = iconClass;
             this.icon.classList.add(iconClass);
         }
+
+        setDisabled(disable) {
+            this.container.disabled = Boolean(disable);
+        }
     }
 
     Autodesk.Viewing.GlobalManagerMixin.call(ShapeEditorWidgetButton.prototype);
 
+    /**
+     * Toolbar for area plan markup
+     */
     class ShapeEditorWidget extends Autodesk.Edit2D.CanvasGizmo {
         constructor(shape, utilities) {
             let visible = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true; let className = arguments.length > 3 ? arguments[3] : undefined;
@@ -86,38 +96,55 @@ function initializeShapeWidget(scope) {
         }
 
         initialize() {
-            // this.container.appendChild(btn1);
             const editBtn = new ShapeEditorWidgetButton(this, 'fa-pencil-alt');
             editBtn.addEventListener('click', () => {
+                let editorWidgets = this.utilities.layer.canvasGizmos.filter(gizmos => gizmos instanceof ShapeEditorWidget)
+                    .filter(gizmos => gizmos.shape.id != this.shape.id);
+
                 if (this.utilities.parentExtension.isEditing) {
                     this.utilities.finishEditingShape();
                     editBtn.setIcon('fa-pencil-alt');
+
+                    editorWidgets.forEach(gizmos => gizmos.stopEditing(false));
                 } else {
                     this.utilities.editShape(this.shape);
                     editBtn.setIcon('fa-save');
+
+                    editorWidgets.forEach(gizmos => gizmos.stopEditing(true));
                 }
             });
 
+            this.editButton = editBtn;
+
             const deleteBtn = new ShapeEditorWidgetButton(this, 'fa-trash-alt');
             deleteBtn.addEventListener('click', () => {
+                if (this.utilities.parentExtension.isCreating) {
+                    this.utilities.defaultTools.polygonTool.cancelEdit(); //!<<< Prevent starting creating poly after clicking on `Delete`.
+                }
+
                 this.utilities.destroy(this.shape);
             });
+
+            this.deleteButton = deleteBtn;
         }
 
         terminate() {
             if (!this.container)
                 return;
 
+            delete this.editButton;
+            this.editButton = null;
+
+            delete this.deleteButton;
+            this.deleteButton = null;
+
             delete this.shape.editorWidget;
             this.shape.editorWidget = null;
-
-            // while (this.container.firstChild) {
-            //     this.container.removeChild(this.container.firstChild);
-            // }
-            // this.container.parentElement.removeChild(this.container);
-            // delete this.container;
-            // this.container = null;
             this.removeFromCanvas();
+        }
+
+        stopEditing(isStop) {
+            this.editButton.setDisabled(isStop);
         }
 
         update() {
@@ -130,6 +157,7 @@ function initializeShapeWidget(scope) {
                 this.shape.bbox.getSize(this.boxSize);
 
                 this.layerPos.x += this.boxSize.x / 2;
+                //this.layerPos.y -= this.boxSize.y / 5;
 
                 // Optional: Shift by a few pixels
                 if (this.pixelOffset) {
@@ -155,6 +183,83 @@ function initializeShapeWidget(scope) {
     scope.ShapeEditorWidget = ShapeEditorWidget;
 }
 
+/**
+ * Data Provider for CRUD markup data.
+ */
+class AreaPlansRemoteDataProvider {
+    static async #fetch(url) {
+        const resp = await fetch(url);
+        if (!resp.ok) {
+            throw new Error(await resp.text());
+        }
+        const json = await resp.json();
+        return json;
+    }
+
+    static async #post(url, data) {
+        const resp = await fetch(url, {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: new Headers({ 'Content-Type': 'application/json' })
+        });
+        if (!resp.ok) {
+            throw new Error(await resp.text());
+        }
+        const json = await resp.json();
+        return json;
+    }
+
+    static async #patch(url, data) {
+        const resp = await fetch(url, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+            headers: new Headers({ 'Content-Type': 'application/json' })
+        });
+        if (!resp.ok) {
+            throw new Error(await resp.text());
+        }
+        const json = await resp.json();
+        return json;
+    }
+
+    static async #delete(url) {
+        const resp = await fetch(url, {
+            method: 'DELETE'
+        });
+
+        if (!resp.ok) {
+            throw new Error(await resp.text());
+        }
+    }
+
+    static async fetchMarkups() {
+        const json = await this.#fetch('/api/markups');
+
+        return json;
+    }
+
+    static async addMarkup(data) {
+        const json = await this.#post('/api/markups', data);
+
+        return json;
+    }
+
+    static async updateMarkup(id, data) {
+        const json = await this.#patch(`/api/markups/${id}`, data);
+
+        return json;
+    }
+
+    static async deleteMarkup(id) {
+        await this.#delete(`/api/markups/${id}`);
+
+        return true;
+    }
+}
+
+/**
+ * Utilities for manipulating Area Plan markups
+ */
 class AreaPlansUtilities {
     constructor() { }
 
@@ -186,6 +291,13 @@ class AreaPlansUtilities {
         return this.context?.selection;
     }
 
+    #onLayerClear = (event) => {
+        if (!(event.action instanceof Autodesk.Edit2D.Actions.RemoveShapes) || !event.action.shapes)
+            return;
+
+        event.action.shapes.forEach(this.detachEditorWidget);
+    };
+
     async initialize(parentExtension) {
         if (this.parentExtension) {
             delete this.parentExtension;
@@ -196,12 +308,17 @@ class AreaPlansUtilities {
 
         let ext = await this.#viewer.loadExtension(EDIT2D_EXT_ID);
         ext.registerDefaultTools();
+        this.defaultTools.polygonEditTool.hoverEnabled = false; //!<<< workaround to fix incorrect hovering.
+
         initializeShapeWidget(globalThis);
 
         return true;
     }
 
     terminate() {
+        this.clearLayer(false);
+
+        this.defaultTools.polygonEditTool.hoverEnabled = true; //!<<< restore
         let ext = this.#viewer.getExtension(EDIT2D_EXT_ID);
         ext.unregisterDefaultTools();
 
@@ -216,7 +333,7 @@ class AreaPlansUtilities {
             throw 'Invalid Shape type';
 
         const editorWidget = new ShapeEditorWidget(shape, this);
-        this.layer.addCanvasGizmo(editorWidget);
+        //this.layer.addCanvasGizmo(editorWidget);
     }
 
     detachEditorWidget(shape) {
@@ -225,7 +342,7 @@ class AreaPlansUtilities {
 
         let { editorWidget } = shape;
         // this.layer.removeCanvasGizmo(editorWidget);
-        editorWidget.terminate();
+        editorWidget?.terminate();
     }
 
     changeTool(toolName) {
@@ -252,7 +369,20 @@ class AreaPlansUtilities {
     }
 
     clearLayer(enableUndo = true) {
-        this.context?.clearLayer(enableUndo);
+        this.undoStack.addEventListener(
+            Autodesk.Edit2D.UndoStack.AFTER_ACTION,
+            this.#onLayerClear
+        );
+
+        this.context?.clearLayer(true);
+
+        this.undoStack.removeEventListener(
+            Autodesk.Edit2D.UndoStack.AFTER_ACTION,
+            this.#onLayerClear
+        );
+
+        if (!enableUndo)
+            this.undoStack.clear();
     }
 
     addShape(shape) {
@@ -328,6 +458,14 @@ class AreaPlansUtilities {
         return shape;
     }
 
+    filterShapes(predate) {
+        return this.layer.shapes.filter(predate);
+    }
+
+    findShapeById(shapeId) {
+        return this.layer.findShapeById(shapeId);
+    }
+
     editShape(shape) {
         if (!(shape instanceof Autodesk.Edit2D.Shape))
             throw 'Invalid Shape type';
@@ -367,6 +505,9 @@ class AreaPlansUtilities {
     }
 }
 
+/**
+ * Default viewer tool providing markup-hovering only feature.
+ */
 class AreaPlansDefaultTool extends Autodesk.Viewing.ToolInterface {
     #utilities = null;
     #active = false;
@@ -435,7 +576,9 @@ class AreaPlansDefaultTool extends Autodesk.Viewing.ToolInterface {
         this.#utilities.hover(shape);
     }
 }
-
+/**
+ * Area Plan Core extension
+ */
 class AreaPlansExtension extends Autodesk.Viewing.Extension {
     #isViewing = false;
     #isCreating = false;
@@ -465,12 +608,27 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
         if (!(event.action instanceof Autodesk.Edit2D.Actions.AddShape) || !event.action.shape)
             return;
 
-        let isWidgetCreated = this.utilities.layer.canvasGizmos.some(gizmos => gizmos instanceof ShapeEditorWidget && (gizmos.shape.id == event.action.shape.id));
+        this.#attachEditorWidgetIfNotExist(event.action.shape);
+    };
+
+    #attachEditorWidgetIfNotExist = (shape) => {
+        if (!(shape instanceof Autodesk.Edit2D.Shape))
+            throw 'Invalid Shape type';
+
+        let isWidgetCreated = this.utilities.layer.canvasGizmos.some(gizmos => gizmos instanceof ShapeEditorWidget && (gizmos.shape.id == shape.id));
         if (isWidgetCreated)
             return;
 
-        this.utilities.attachEditorWidget(event.action.shape);
-    };
+        this.utilities.attachEditorWidget(shape);
+    }
+
+    showEditorWidgets() {
+        this.utilities.layer.shapes.forEach(this.#attachEditorWidgetIfNotExist);
+    }
+
+    hideEditorWidgets() {
+        this.utilities.layer.shapes.forEach(this.detachEditorWidget);
+    }
 
     enterCreateMode() {
         this.leaveViewingMode();
@@ -488,7 +646,7 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
     }
 
     leaveCreateMode() {
-        this.utilities.undoStack.addEventListener(
+        this.utilities.undoStack.removeEventListener(
             Autodesk.Edit2D.UndoStack.AFTER_ACTION,
             this.#onShapeAdded
         );
@@ -559,6 +717,7 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
 
     clearLayer(enableUndo = true) {
         this.utilities.clearLayer(enableUndo);
+        this.enterViewingMode();
     }
 
     async initialize() {
@@ -589,8 +748,123 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
         this.utilities = null;
     }
 
+    async loadMarkups() {
+        this.utilities.clearLayer(false);
+
+        let markups = await AreaPlansRemoteDataProvider.fetchMarkups();
+        if (!markups || markups.length <= 0) return;
+
+        let shapes = markups.map(markup => {
+            let shape = this.utilities.deserialize(markup.svg);
+            shape.dbId = markup.id;
+            shape.selectable = false;
+        });
+
+        this.utilities.addShapes(shapes);
+    }
+
+    async reloadMarkups() {
+        this.leaveCreateMode();
+        this.clearLayer(false);
+        await this.loadMarkups();
+    }
+
+    async #saveNewMarkups() {
+        let model = this.viewer.model;
+        let modelUrn = model?.getData().urn;
+        let modelGuid = model?.getDocumentNode().guid();
+        let newMarkups = this.utilities.filterShapes(shape => !shape.dbId);
+
+        newMarkups.forEach(async markup => {
+            try {
+                let path = this.utilities.serialize(markup);
+                let data = {
+                    urn: modelUrn,
+                    guid: modelGuid,
+                    svg: path
+                };
+
+                let json = await AreaPlansRemoteDataProvider.addMarkup(data);
+                markup.dbId = json.id;
+            } catch (ex) {
+                console.error(`Failed to save the markup`, markup, ex);
+            }
+        });
+    }
+
+    async #saveModifiedMarkups(remoteMarkups) {
+        let remoteMarkupIds = remoteMarkups.map(markup => markup.id);
+        // Find modified markups
+        let modifiedMarkups = this.utilities.filterShapes(shape => shape.dbId && remoteMarkupIds.includes(shape.dbId))
+            .filter(shape => {
+                let remoteMarkup = remoteMarkups.find(markup => markup.id == shape.dbId);
+                if (remoteMarkup) {
+                    let path = this.utilities.serialize(shape);
+                    if (remoteMarkup.svg != path) {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
+
+        // Save modifications
+        modifiedMarkups.forEach(async shape => {
+            try {
+                let path = this.utilities.serialize(shape);
+                let dbId = shape.dbId;
+                let data = remoteMarkups.find(markup => markup.id == dbId);
+                data.svg = path;
+
+                await AreaPlansRemoteDataProvider.updateMarkup(dbId, data);
+            } catch (ex) {
+                console.error(`Failed to update the markup with id: \`${shape.dbId}\``, shape, ex);
+            }
+        });
+    }
+
+    async #deleteMarkups(remoteMarkups) {
+        let remoteMarkupIds = remoteMarkups.map(markup => markup.id);
+        let localMarkupIds = this.utilities.filterShapes(shape => shape.dbId)
+            .map(shape => shape.dbId);
+
+        remoteMarkupIds.filter(remoteId => !localMarkupIds.includes(remoteId))
+            .forEach(async dbId => {
+                try {
+                    await AreaPlansRemoteDataProvider.deleteMarkup(dbId);
+                } catch (ex) {
+                    console.error(`Failed to delete the markup with id: \`${dbId}\``, ex);
+                }
+            });
+    }
+
+    async saveChanges() {
+        await this.#saveNewMarkups();
+
+        let remoteMarkups = await AreaPlansRemoteDataProvider.fetchMarkups();
+        if (remoteMarkups) {
+            await this.#saveModifiedMarkups(remoteMarkups);
+            await this.#deleteMarkups(remoteMarkups);
+        }
+
+        this.reloadMarkups();
+    }
+
+    // async deleteMarkup(shapeId) {
+    //     let shape = this.utilities.findShapeById(shapeId);
+    //     if (!shape)
+    //         throw `Shape not found with given id \`${shapeId}\``;
+
+    //     if (shape.dbId)
+    //         await AreaPlansRemoteDataProvider.deleteMarkup(shape.dbId);
+
+    //     this.utilities.destroy(shape);
+    // }
+
     async load() {
         await this.initialize();
+
+        await this.loadMarkups();
         return true;
     }
 

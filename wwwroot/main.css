@@ -99,3 +99,12 @@ html {
 .btn:hover {
     background-color: RoyalBlue;
 }
+
+.btn:disabled:hover, button[disabled]:hover {
+    background-color: #009bff;
+}
+
+button.btn:disabled, button.btn[disabled] {
+    cursor: not-allowed;
+    color: lightgray;
+}

@@ -17,18 +17,27 @@ function setupAreaPlans(viewer) {
         addAreaPlansBtn.style.display = '';
         saveAreaPlanChangesBtn.style.display = '';
         cancelAreaPlanChangesBtn.style.display = '';
+
+        let areaPlansExt = viewer.getExtension('Autodesk.Das.AreaPlansExtension');
+        areaPlansExt.showEditorWidgets();
     };
 
     cancelAreaPlanChangesBtn.onclick = () => {
         addAreaPlansBtn.style.display = 'none';
         saveAreaPlanChangesBtn.style.display = 'none';
         cancelAreaPlanChangesBtn.style.display = 'none';
+        
+        let areaPlansExt = viewer.getExtension('Autodesk.Das.AreaPlansExtension');
+        areaPlansExt.reloadMarkups();
     };
 
     saveAreaPlanChangesBtn.onclick = () => {
         addAreaPlansBtn.style.display = 'none';
         saveAreaPlanChangesBtn.style.display = 'none';
         cancelAreaPlanChangesBtn.style.display = 'none';
+
+        let areaPlansExt = viewer.getExtension('Autodesk.Das.AreaPlansExtension');
+        areaPlansExt.saveChanges();
     };
 
     addAreaPlansBtn.onclick = function () {
