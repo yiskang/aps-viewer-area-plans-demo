@@ -28,7 +28,7 @@ html {
     flex-flow: row nowrap;
     justify-content: space-between;
     align-items: center;
-    padding-top: 3em;
+    margin-top: 3em;
 }
 
 #toolbar * {
@@ -80,7 +80,7 @@ html {
 }
 
 /* Style buttons */
-.btn {
+.edit2d-widget-btn {
     background-color: #009bff;
     /* Blue background */
     border: none;
@@ -96,15 +96,15 @@ html {
 }
 
 /* Darker background on mouse-over */
-.btn:hover {
-    background-color: RoyalBlue;
+.edit2d-widget-btn:hover {
+    background-color: #007ccc;
 }
 
-.btn:disabled:hover, button[disabled]:hover {
+.edit2d-widget-btn:disabled:hover, .edit2d-widget-btn[disabled]:hover {
     background-color: #009bff;
 }
 
-button.btn:disabled, button.btn[disabled] {
+button.edit2d-widget-btn:disabled, button.edit2d-widget-btn[disabled] {
     cursor: not-allowed;
-    color: lightgray;
+    color: darkgrey;
 }
