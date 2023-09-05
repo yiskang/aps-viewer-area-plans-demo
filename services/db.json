@@ -38,7 +38,7 @@
     {
       "urn": "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c2FuZGJveC1rd2VqN3hwYmdwNjN4NGhsMzM1eTZtMjZvYWtnZ29mLXVzLzEtcWNhZDEucGRm",
       "guid": "e1979f5f-8935-44f5-9d7c-74c5fb097246",
-      "svg": "<path d=\"M 0.1253477574827411,0.8670606797516748 H 0.17633088045221895 V 0.8241988554271088 H 0.1253477574827411 Z\" stroke=\"rgb(0,0,128)\" fill=\"rgb(0,0,128)\" stroke-width=\"3\" fill-opacity=\"0.2\"/>",
+      "svg": "<path d=\"M 0.1253477574827411,0.8670606797516748 H 0.17633088045221895 V 0.8241988554271088 H 0.1253477574827411 Z\" stroke=\"rgb(0,0,128)\" fill=\"rgb(128,0,0)\" stroke-width=\"3\" fill-opacity=\"0.2\"/>",
       "id": 11
     },
     {
@@ -46,6 +46,12 @@
       "guid": "e1979f5f-8935-44f5-9d7c-74c5fb097246",
       "svg": "<path d=\"M 0.25658518184597295,0.9724699382513949 H 0.3563431088812649 V 0.8591086515841236 H 0.25658518184597295 Z\" stroke=\"rgb(0,0,128)\" fill=\"rgb(0,0,128)\" stroke-width=\"3\" fill-opacity=\"0.2\"/>",
       "id": 12
+    },
+    {
+      "urn": "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c2FuZGJveC1rd2VqN3hwYmdwNjN4NGhsMzM1eTZtMjZvYWtnZ29mLXVzLzEtcWNhZDEucGRm",
+      "guid": "e1979f5f-8935-44f5-9d7c-74c5fb097246",
+      "svg": "<path d=\"M 0.19291945655519763,0.7940198034575711 H 0.24530021625881393 V 0.7299570036208399 H 0.19291945655519763 Z\" stroke=\"rgb(0,0,128)\" fill=\"rgb(0,0,128)\" stroke-width=\"3\" fill-opacity=\"0.2\"/>",
+      "id": 13
     }
   ]
 }

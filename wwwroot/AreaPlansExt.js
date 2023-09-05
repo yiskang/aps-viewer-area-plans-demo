@@ -22,6 +22,56 @@ const AreaPlansDefaultToolName = 'area-plans-default-tool';
 const EDIT2D_EXT_ID = 'Autodesk.Edit2D';
 const MODE_CHANGED_EVENT = 'modeChanged';
 
+let domParser = null;
+
+const parseSvgStyle = (svg) => {
+    // init on first use
+    domParser = domParser || new DOMParser();
+
+    const dom = domParser.parseFromString(svg, 'application/xml');
+
+    if (dom.childNodes.length !== 1) {
+        throw 'Function does only support svg with a single element: path, circle';
+    }
+
+    const node = dom.firstChild;
+    const attributes = node.attributes;
+
+    let style = new Autodesk.Edit2D.Style();
+
+    if (attributes.hasOwnProperty('fill'))
+        style.fillColor = attributes.getNamedItem('fill').value;
+
+    if (attributes.hasOwnProperty('fill-opacity')) {
+        let fillAlpha = attributes.getNamedItem('fill-opacity').value;
+        style.fillAlpha = fillAlpha != undefined ? parseFloat(fillAlpha) : 0.2;
+    }
+
+    if (attributes.hasOwnProperty('stroke'))
+        style.lineColor = attributes.getNamedItem('stroke').value;
+
+    if (attributes.hasOwnProperty('stroke-width')) {
+        let lineWidth = attributes.getNamedItem('stroke-width').value;
+        style.lineWidth = lineWidth != undefined ? parseFloat(lineWidth) : 3.0;
+    }
+
+    if (attributes.hasOwnProperty('stroke-opacity')) {
+        let lineAlpha = attributes.getNamedItem('stroke-opacity').value;
+        style.lineAlpha = lineAlpha != undefined ? parseFloat(lineAlpha) : 1.0;
+    }    
+
+    return style;
+}
+
+const loadCSS = (href) => new Promise(function (resolve, reject) {
+    const el = document.createElement('link');
+    el.rel = 'stylesheet';
+    el.href = href;
+    el.onload = resolve;
+    el.onerror = reject;
+    document.head.appendChild(el);
+});
+
 function initializeShapeWidget(scope) {
     /**
      * Toolbar button for area plan markup
@@ -68,6 +118,138 @@ function initializeShapeWidget(scope) {
 
     Autodesk.Viewing.GlobalManagerMixin.call(ShapeEditorWidgetButton.prototype);
 
+    class ShapeEditorToolbarWidget {
+        constructor(parent) {
+            // Optional: Shift label by a couple of pixels.
+            this.pixelOffset = new THREE.Vector2();
+            this.boxSize = new THREE.Vector2();
+            this.parent = parent;
+
+            this.initialize();
+        }
+
+        get isVisible() {
+            return this.container.style.display == 'block';
+        }
+
+        setVisible(visible) {
+            visible = Boolean(visible)
+            this.container.style.display = visible ? 'block' : 'none';
+
+            if (!visible)
+                Coloris.close();
+        }
+
+        #getShapeColor() {
+            let rgbVals = this.parent.shape.style.fillColor.replace(/[^\d,]/g, '').split(',');
+            let rgbAlphaVal = this.parent.shape.style.fillAlpha;
+            let color = `rgba(${rgbVals.join(',')},${rgbAlphaVal})`;
+            return color;
+        }
+
+        initialize() {
+            const _document = this.getDocument();
+            let container = _document.createElement('div');
+            container.classList.add('edit2d-label');
+            container.classList.add('edit2d-toolbar-widget');
+            container.style.width = '100px';//'150px';
+            container.style.height = '20px';
+            container.style.paddingTop = '5px';
+            container.style.zIndex = '1';
+            container.style.pointerEvents = 'auto';
+            container.style.borderRadius = '0 0 8px 8px';
+            this.parent.layer.viewer.container.appendChild(container);
+            this.container = container;
+
+            this.setVisible(false);
+
+            const colorPicker = _document.createElement('input');
+            colorPicker.type = 'text';
+            colorPicker.classList.add('edit2d-color-picker');
+            colorPicker.value = this.#getShapeColor();
+            this.container.appendChild(colorPicker);
+
+            Coloris({
+                el: '.edit2d-color-picker',
+                theme: 'polaroid',
+                //closeButton: true,
+                focusInput: false,
+                forceAlpha: true,
+                format: 'rgb',
+                swatches: [
+                    'rgba(128,0,0,0.2)',
+                    'rgba(0,128,0,0.2)',
+                    'rgba(0,0,128,0.2)'
+                ]
+            });
+
+            const confirmBtn = new ShapeEditorWidgetButton(this, 'fa-check');
+            confirmBtn.addEventListener('click', () => {
+                let pickedColorVals = colorPicker.value.replace(/[^\d.d,]/g, '').split(',');
+                this.parent.shape.style.setFillColor(pickedColorVals[0], pickedColorVals[1], pickedColorVals[2]);
+                this.parent.shape.style.fillAlpha = pickedColorVals[3];
+                this.parent.layer.update();
+                this.setVisible(false);
+            });
+            this.confirmButton = confirmBtn;
+
+            const cancelBtn = new ShapeEditorWidgetButton(this, 'fa-times');
+            cancelBtn.addEventListener('click', () => {
+                let originalColor = this.#getShapeColor();
+                colorPicker.value = originalColor;
+                // colorPicker.style.color = originalColor;
+                this.container.querySelector('.clr-field').style.color = originalColor;
+                this.setVisible(false);
+            });
+            this.cancelButton = cancelBtn;
+
+            //this.setVisible(true);
+        }
+
+        terminate() {
+            if (!this.container)
+                return;
+
+            Coloris.close();
+
+            delete this.confirmBtn;
+            this.confirmBtn = null;
+
+            delete this.cancelButton;
+            this.cancelButton = null;
+
+            this.container.parentElement.removeChild(this.container);
+        }
+
+        update() {
+            const p = this.parent.canvasPos;
+            const style = this.container.style;
+
+            // Choose translation offset in % based on X-alignment
+            let tx;
+            switch (this.parent.alignX) {
+                case Autodesk.Edit2D.AlignX.Left: tx = '0%'; break;
+                case Autodesk.Edit2D.AlignX.Center: tx = '-50%'; break;
+                case Autodesk.Edit2D.AlignX.Right: tx = '-100%'; break;
+            }
+
+
+            let ty;
+            switch (this.parent.alignY) {
+                case Autodesk.Edit2D.AlignY.Top: ty = '0%'; break;
+                case Autodesk.Edit2D.AlignY.Center: ty = '-50%'; break;
+                case Autodesk.Edit2D.AlignY.Bottom: ty = '-100%'; break;
+            }
+
+            const left = `${p.x}px`;
+            const top = `calc(${p.y + 2}px + ${this.parent.container.style.height})`;
+
+            style.transform = `translate(${left}, ${top}) translate(${tx}, ${ty}) rotate(${this.parent.angle}deg)`;
+        }
+    }
+
+    Autodesk.Viewing.GlobalManagerMixin.call(ShapeEditorToolbarWidget.prototype);
+
     /**
      * Toolbar for area plan markup
      */
@@ -96,6 +278,15 @@ function initializeShapeWidget(scope) {
         }
 
         initialize() {
+            const toolbar = new ShapeEditorToolbarWidget(this);
+            this.toolbar = toolbar;
+
+            const colorPickerBtn = new ShapeEditorWidgetButton(this, 'fa-palette');
+            colorPickerBtn.addEventListener('click', () => {
+                toolbar.setVisible(true);
+            });
+            this.colorPickerButton = colorPickerBtn;
+
             const editBtn = new ShapeEditorWidgetButton(this, 'fa-pencil-alt');
             editBtn.addEventListener('click', () => {
                 let editorWidgets = this.utilities.layer.canvasGizmos.filter(gizmos => gizmos instanceof ShapeEditorWidget)
@@ -131,6 +322,9 @@ function initializeShapeWidget(scope) {
         terminate() {
             if (!this.container)
                 return;
+
+            delete this.colorPickerButton;
+            this.colorPickerButton = null;
 
             delete this.editButton;
             this.editButton = null;
@@ -169,6 +363,7 @@ function initializeShapeWidget(scope) {
                 }
 
                 super.update();
+                this.toolbar.update();
             } else {
                 this.container.style.visibility = 'hidden';
             }
@@ -437,7 +632,16 @@ class AreaPlansUtilities {
             throw 'Invalid SVG Path';
 
         let shape = Autodesk.Edit2D.Shape.fromSVG(svg);
+        let style = parseSvgStyle(svg); //!<<< Parse styles from SVG attributes since Edit2D skip this part.
+
+        shape.style.lineColor = style.lineColor;
+        shape.style.lineAlpha = style.lineAlpha;
+        shape.style.lineWidth = style.lineWidth;
+        shape.style.fillColor = style.fillColor;
+        shape.style.fillAlpha = style.fillAlpha;
+
         shape.updateBBox();
+
         this.addShape(shape);
         return shape;
     }
@@ -736,6 +940,11 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
     }
 
     async initialize() {
+        await Promise.all([
+            loadCSS('https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.css'),
+            Autodesk.Viewing.Private.theResourceLoader.loadScript('https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.js')
+        ]);
+
         const utilities = new AreaPlansUtilities();
         await utilities.initialize(this);
         this.utilities = utilities;
