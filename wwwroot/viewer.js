@@ -33,11 +33,7 @@ export function initViewer(container) {
 export function loadModel(viewer, urn) {
     return new Promise(function (resolve, reject) {
         async function onDocumentLoadSuccess(doc) {
-            let model = await viewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry());
-            // await viewer.waitForLoadDone();
-            await viewer.loadExtension('Autodesk.Das.AreaPlansExtension');
-
-            resolve(model);
+            resolve(viewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry()));
         }
         function onDocumentLoadFailure(code, message, errors) {
             reject({ code, message, errors });

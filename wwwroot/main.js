@@ -127,11 +127,11 @@ async function onModelSelected(viewer, urn) {
                 break;
             default:
                 clearNotification();
-                loadModel(viewer, urn).then(() => {
+                loadModel(viewer, urn).then(async () => {
                     const manageAreaPlansBtn = document.getElementById('manageAreaPlans');
                     manageAreaPlansBtn.style.display = '';
 
-                    let areaPlansExt = viewer.getExtension('Autodesk.Das.AreaPlansExtension');
+                    let areaPlansExt = await viewer.loadExtension('Autodesk.Das.AreaPlansExtension');
                     areaPlansExt.addEventListener(
                         Autodesk.Das.AreaPlans.MODE_CHANGED_EVENT,
                         (event) => {
