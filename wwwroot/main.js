@@ -26,7 +26,7 @@ function setupAreaPlans(viewer) {
         addAreaPlansBtn.style.display = 'none';
         saveAreaPlanChangesBtn.style.display = 'none';
         cancelAreaPlanChangesBtn.style.display = 'none';
-        
+
         let areaPlansExt = viewer.getExtension('Autodesk.Das.AreaPlansExtension');
         areaPlansExt.reloadMarkups();
     };
@@ -127,12 +127,20 @@ async function onModelSelected(viewer, urn) {
                 break;
             default:
                 clearNotification();
-                loadModel(viewer, urn).then(async () => {
-                    const manageAreaPlansBtn = document.getElementById('manageAreaPlans');
-                    manageAreaPlansBtn.style.display = '';
+                resetAreaPlanButtonState();
 
-                    let areaPlansExt = await viewer.loadExtension('Autodesk.Das.AreaPlansExtension');
-                    areaPlansExt.addEventListener(
+                loadModel(viewer, urn).then(async () => {
+                    let areaPlansExt = await viewer.loadExtension('Autodesk.Das.AreaPlansExtension', { autoLoad: false });
+
+                    viewer.addEventListener(
+                        Autodesk.Das.AreaPlans.MARKUP_LOADED_EVENT,
+                        (event) => {
+                            const manageAreaPlansBtn = document.getElementById('manageAreaPlans');
+                            manageAreaPlansBtn.style.display = '';
+                        },
+                        { once: true });
+
+                    viewer.addEventListener(
                         Autodesk.Das.AreaPlans.MODE_CHANGED_EVENT,
                         (event) => {
                             const addAreaPlansBtn = document.getElementById('addAreaPlans');
@@ -143,6 +151,8 @@ async function onModelSelected(viewer, urn) {
                                 addAreaPlansBtn.innerText = 'Add Area';
                             }
                         });
+
+                    await areaPlansExt.loadMarkups();
                 });
                 break;
         }
@@ -162,4 +172,16 @@ function clearNotification() {
     const overlay = document.getElementById('overlay');
     overlay.innerHTML = '';
     overlay.style.display = 'none';
+}
+
+function resetAreaPlanButtonState() {
+    const manageAreaPlansBtn = document.getElementById('manageAreaPlans');
+    const addAreaPlansBtn = document.getElementById('addAreaPlans');
+    const saveAreaPlanChangesBtn = document.getElementById('saveAreaPlanChanges');
+    const cancelAreaPlanChangesBtn = document.getElementById('cancelAreaPlanChanges');
+
+    manageAreaPlansBtn.style.display = 'none';
+    addAreaPlansBtn.style.display = 'none';
+    saveAreaPlanChangesBtn.style.display = 'none';
+    cancelAreaPlanChangesBtn.style.display = 'none';
 }

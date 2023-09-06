@@ -20,7 +20,8 @@
 
 const AreaPlansDefaultToolName = 'area-plans-default-tool';
 const EDIT2D_EXT_ID = 'Autodesk.Edit2D';
-const MODE_CHANGED_EVENT = 'modeChanged';
+const MODE_CHANGED_EVENT = 'areaMarkupToolModeChanged';
+const MARKUP_LOADED_EVENT = 'areaMarkupLoaded';
 
 let domParser = null;
 
@@ -297,6 +298,10 @@ function initializeShapeWidget(scope) {
 
             const colorPickerBtn = new ShapeEditorWidgetButton(this.container, 'fa-palette');
             colorPickerBtn.addEventListener('click', () => {
+                if (this.utilities.parentExtension.isCreating) {
+                    this.utilities.defaultTools.polygonTool.cancelEdit(); //!<<< Prevent starting creating poly after clicking on `Delete`.
+                }
+
                 toolbar.setVisible(true);
             });
             this.colorPickerButton = colorPickerBtn;
@@ -479,7 +484,9 @@ class AreaPlansRemoteDataProvider {
  * Utilities for manipulating Area Plan markups
  */
 class AreaPlansUtilities {
-    constructor() { }
+    constructor() {
+        this.editorWidgets = [];
+    }
 
     get #viewer() {
         return this.parentExtension.viewer;
@@ -516,6 +523,13 @@ class AreaPlansUtilities {
         event.action.shapes.forEach(shape => this.detachEditorWidget(shape));
     };
 
+    #terminateAllEditorWidgets() {
+        while (this.editorWidgets.length > 0) {
+            let editorWidget = this.editorWidgets.pop();
+            editorWidget?.terminate();
+        }
+    }
+
     async initialize(parentExtension) {
         if (this.parentExtension) {
             delete this.parentExtension;
@@ -536,6 +550,8 @@ class AreaPlansUtilities {
     terminate() {
         this.clearLayer(false);
 
+        this.#terminateAllEditorWidgets();
+
         if (this.defaultTools) {
             this.defaultTools.polygonEditTool.hoverEnabled = true; //!<<< restore
             let ext = this.#viewer.getExtension(EDIT2D_EXT_ID);
@@ -554,11 +570,12 @@ class AreaPlansUtilities {
 
         let isWidgetCreated = this.layer.canvasGizmos.some(gizmos => gizmos instanceof ShapeEditorWidget && (gizmos.shape.id == shape.id));
         if (isWidgetCreated)
-            return;
+            return false;
 
-        new ShapeEditorWidget(shape, this);
-        //const editorWidget = new ShapeEditorWidget(shape, this);
+        const editorWidget = new ShapeEditorWidget(shape, this);
         //this.layer.addCanvasGizmo(editorWidget);
+        this.editorWidgets.push(editorWidget);
+
         return true;
     }
 
@@ -567,8 +584,16 @@ class AreaPlansUtilities {
             throw 'Invalid Shape type';
 
         let { editorWidget } = shape;
+        const index = this.editorWidgets.indexOf(editorWidget);
+
+        if (index === -1) {
+            return false;
+        }
+        this.editorWidgets.splice(index, 1);
+
         // this.layer.removeCanvasGizmo(editorWidget);
         editorWidget?.terminate();
+
         return true;
     }
 
@@ -822,6 +847,7 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
     #isEditing = false;
 
     constructor(viewer, options) {
+        options = options || { autoLoad: true };
         super(viewer, options);
     }
 
@@ -860,11 +886,11 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
     }
 
     showEditorWidgets() {
-        this.utilities.layer.shapes.forEach(shape => this.#attachEditorWidgetIfNotExist(shape));
+        this.utilities.layer?.shapes.forEach(shape => this.#attachEditorWidgetIfNotExist(shape));
     }
 
     hideEditorWidgets() {
-        this.utilities.layer.shapes.forEach(shape => this.detachEditorWidget(shape));
+        this.utilities.layer?.shapes.forEach(shape => this.detachEditorWidget(shape));
     }
 
     enterCreateMode() {
@@ -879,7 +905,7 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
         this.#isViewing = false;
         this.#isEditing = false;
 
-        this.dispatchEvent({ type: MODE_CHANGED_EVENT, mode: 'create' });
+        this.viewer.dispatchEvent({ type: MODE_CHANGED_EVENT, mode: 'create' });
     }
 
     leaveCreateMode() {
@@ -899,7 +925,7 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
         this.#isCreating = false;
         this.#isViewing = false;
 
-        this.dispatchEvent({ type: MODE_CHANGED_EVENT, mode: 'edit' });
+        this.viewer.dispatchEvent({ type: MODE_CHANGED_EVENT, mode: 'edit' });
     }
 
     leaveEditMode() {
@@ -913,7 +939,7 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
         this.#isEditing = false;
         this.#isCreating = false;
 
-        this.dispatchEvent({ type: MODE_CHANGED_EVENT, mode: 'viewing' });
+        this.viewer.dispatchEvent({ type: MODE_CHANGED_EVENT, mode: 'viewing' });
     }
 
     leaveViewingMode() {
@@ -1002,13 +1028,17 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
         };
 
         let markups = await AreaPlansRemoteDataProvider.fetchMarkups(queries);
-        if (!markups || markups.length <= 0) return;
+        if (!markups || markups.length <= 0) {
+            markups = [];
+        }
 
         markups.forEach(markup => {
             let shape = this.utilities.deserialize(markup.svg);
             shape.dbId = markup.id;
             shape.selectable = false;
         });
+
+        this.viewer.dispatchEvent({ type: MARKUP_LOADED_EVENT });
     }
 
     async reloadMarkups() {
@@ -1120,7 +1150,9 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
     async load() {
         await this.initialize();
 
-        await this.loadMarkups();
+        if (this.options.autoLoad)
+            await this.loadMarkups();
+
         return true;
     }
 
@@ -1133,6 +1165,6 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
 AutodeskNamespace('Autodesk.Das.AreaPlans');
 Autodesk.Das.AreaPlans.AreaPlansExtension = AreaPlansExtension;
 Autodesk.Das.AreaPlans.MODE_CHANGED_EVENT = MODE_CHANGED_EVENT;
+Autodesk.Das.AreaPlans.MARKUP_LOADED_EVENT = MARKUP_LOADED_EVENT;
 
-Autodesk.Viewing.EventDispatcher.prototype.apply(AreaPlansExtension.prototype);
 Autodesk.Viewing.theExtensionManager.registerExtension('Autodesk.Das.AreaPlansExtension', AreaPlansExtension);
