@@ -79,63 +79,79 @@ html {
     min-width: 2em;
 }
 
-/* Style buttons */
-.edit2d-widget-btn {
+.adsk-viewing-viewer .edit2d-widget {
+    display: none;
+    position: absolute;
+    height: 19px;
+    left: 0px;
+    top: 0px;
+    padding: 2px 0 2px 0;
     background-color: #009bff;
-    /* Blue background */
-    border: none;
-    /* Remove borders */
-    color: white;
-    /* White text */
-    /* padding: 12px 16px; */
-    /* Some padding */
-    font-size: 16px;
-    /* Set a font size */
+    box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.25);
+    color: #f4f4f4;
+    font-size: 12px;
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
+    border-radius: 8px;
+    pointer-events: none;
     cursor: pointer;
-    /* Mouse pointer on hover */
+    z-index: 2;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
 }
 
-/* Darker background on mouse-over */
-.edit2d-widget-btn:hover {
+.adsk-viewing-viewer .edit2d-widget.visible {
+    display: block;
+}
+
+.adsk-viewing-viewer .edit2d-widget-btn {
+    background-color: #009bff;
+    border: none;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.adsk-viewing-viewer .edit2d-widget-btn:hover {
     background-color: #007ccc;
 }
 
-.edit2d-widget-btn:disabled:hover,
-.edit2d-widget-btn[disabled]:hover {
+.adsk-viewing-viewer .edit2d-widget-btn:disabled:hover,
+.adsk-viewing-viewer .edit2d-widget-btn[disabled]:hover {
     background-color: #009bff;
 }
 
-button.edit2d-widget-btn:disabled,
-button.edit2d-widget-btn[disabled] {
+.adsk-viewing-viewer button.edit2d-widget-btn:disabled,
+.adsk-viewing-viewer button.edit2d-widget-btn[disabled] {
     cursor: not-allowed;
     color: darkgrey;
 }
 
-.edit2d-toolbar-widget .edit2d-widget-btn {
+.adsk-viewing-viewer .edit2d-toolbar-widget .edit2d-widget-btn {
     font-size: 10px;
     height: 10px;
     width: 10px;
     padding: 5px;
 }
 
-.edit2d-toolbar-widget > div {
+.adsk-viewing-viewer .edit2d-toolbar-widget>div {
     height: 20px;
     display: flex;
 }
 
-.edit2d-color-picker {
+.adsk-viewing-viewer .edit2d-color-picker {
     width: 45px;
     height: 20px;
     margin-left: 5px;
 }
 
-.edit2d-toolbar-widget .pickr {
+.adsk-viewing-viewer .edit2d-toolbar-widget .pickr {
     width: 45px;
     height: 20px;
     margin-left: 5px;
 }
 
-.edit2d-toolbar-widget .pickr button {
+.adsk-viewing-viewer .edit2d-toolbar-widget .pickr button {
     width: 45px;
     height: 20px;
     padding-top: 0.6em;

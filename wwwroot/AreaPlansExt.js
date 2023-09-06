@@ -150,7 +150,7 @@ function initializeShapeWidget(scope) {
         initialize() {
             const _document = this.getDocument();
             let container = _document.createElement('div');
-            container.classList.add('edit2d-label');
+            container.classList.add('edit2d-widget');
             container.classList.add('edit2d-toolbar-widget');
             container.style.width = '100px';//'150px';
             container.style.height = '20px';
@@ -273,7 +273,7 @@ function initializeShapeWidget(scope) {
             super(utilities.layer, visible, className);
 
             // Use measure-tool styles by default
-            this.container.classList.add('edit2d-label');
+            this.container.classList.add('edit2d-widget');
             this.container.classList.add('visible');
             this.container.style.width = '100px';//'150px';
             this.container.style.height = '20px';
