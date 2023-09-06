@@ -58,7 +58,7 @@ const parseSvgStyle = (svg) => {
     if (attributes.hasOwnProperty('stroke-opacity')) {
         let lineAlpha = attributes.getNamedItem('stroke-opacity').value;
         style.lineAlpha = lineAlpha != undefined ? parseFloat(lineAlpha) : 1.0;
-    }    
+    }
 
     return style;
 }
@@ -77,18 +77,18 @@ function initializeShapeWidget(scope) {
      * Toolbar button for area plan markup
      */
     class ShapeEditorWidgetButton extends Autodesk.Viewing.EventDispatcher {
-        constructor(parent, iconClass) {
+        constructor(parentContainer, iconClass) {
             super();
 
             // html content to be shown
             const _document = this.getDocument();
             const container = _document.createElement('button');
             const icon = _document.createElement('a');
-            parent.container.appendChild(container);
+            parentContainer.appendChild(container);
 
             this.container = container;
             this.icon = icon;
-            this.parent = parent;
+            this.parentContainer = parentContainer;
 
             container.classList.add('edit2d-widget-btn');
             icon.classList.add('fa');
@@ -137,7 +137,7 @@ function initializeShapeWidget(scope) {
             this.container.style.display = visible ? 'block' : 'none';
 
             if (!visible)
-                Coloris.close();
+                this.colorPicker && this.colorPicker.hide();
         }
 
         #getShapeColor() {
@@ -163,54 +163,68 @@ function initializeShapeWidget(scope) {
 
             this.setVisible(false);
 
-            const colorPicker = _document.createElement('input');
-            colorPicker.type = 'text';
-            colorPicker.classList.add('edit2d-color-picker');
-            colorPicker.value = this.#getShapeColor();
-            this.container.appendChild(colorPicker);
+            const contentWrapper = _document.createElement('div');
+            this.container.appendChild(contentWrapper);
 
-            Coloris({
-                el: '.edit2d-color-picker',
-                theme: 'polaroid',
-                //closeButton: true,
-                focusInput: false,
-                forceAlpha: true,
-                format: 'rgb',
+            const colorPickerContainer = _document.createElement('div');
+            colorPickerContainer.classList.add('edit2d-color-picker');
+            contentWrapper.appendChild(colorPickerContainer);
+
+            const colorPicker = new Pickr({
+                el: colorPickerContainer,
+                theme: 'nano',
+                defaultRepresentation: 'RGBA',
+                default: this.#getShapeColor(),
                 swatches: [
                     'rgba(128,0,0,0.2)',
                     'rgba(0,128,0,0.2)',
                     'rgba(0,0,128,0.2)'
-                ]
+                ],
+                components: {
+                    // Main components
+                    preview: true,
+                    opacity: true,
+                    hue: true,
+                    // Input / output Options
+                    interaction: {
+                        input: true,
+                        // save: true
+                    }
+                }
             });
+            colorPicker.on('change', (color, source, instance) => {
+                colorPicker.applyColor();
+            });
+            this.colorPicker = colorPicker;
 
-            const confirmBtn = new ShapeEditorWidgetButton(this, 'fa-check');
+            const confirmBtn = new ShapeEditorWidgetButton(contentWrapper, 'fa-check');
             confirmBtn.addEventListener('click', () => {
-                let pickedColorVals = colorPicker.value.replace(/[^\d.d,]/g, '').split(',');
-                this.parent.shape.style.setFillColor(pickedColorVals[0], pickedColorVals[1], pickedColorVals[2]);
-                this.parent.shape.style.fillAlpha = pickedColorVals[3];
+                let pickedColor = this.colorPicker.getColor().toRGBA();
+                this.parent.shape.style.setFillColor(pickedColor[0], pickedColor[1], pickedColor[2]);
+                this.parent.shape.style.fillAlpha = pickedColor[3];
                 this.parent.layer.update();
                 this.setVisible(false);
             });
             this.confirmButton = confirmBtn;
 
-            const cancelBtn = new ShapeEditorWidgetButton(this, 'fa-times');
+            const cancelBtn = new ShapeEditorWidgetButton(contentWrapper, 'fa-times');
             cancelBtn.addEventListener('click', () => {
                 let originalColor = this.#getShapeColor();
-                colorPicker.value = originalColor;
-                // colorPicker.style.color = originalColor;
-                this.container.querySelector('.clr-field').style.color = originalColor;
+                this.colorPicker.setColor(originalColor);
                 this.setVisible(false);
             });
             this.cancelButton = cancelBtn;
-
-            //this.setVisible(true);
         }
 
         terminate() {
             if (!this.container)
                 return;
 
-            Coloris.close();
+            if (this.colorPicker) {
+                this.colorPicker.destroyAndRemove();
+                delete this.colorPicker;
+                this.colorPicker = null;
+            }
 
             delete this.confirmBtn;
             this.confirmBtn = null;
@@ -281,13 +295,13 @@ function initializeShapeWidget(scope) {
             const toolbar = new ShapeEditorToolbarWidget(this);
             this.toolbar = toolbar;
 
-            const colorPickerBtn = new ShapeEditorWidgetButton(this, 'fa-palette');
+            const colorPickerBtn = new ShapeEditorWidgetButton(this.container, 'fa-palette');
             colorPickerBtn.addEventListener('click', () => {
                 toolbar.setVisible(true);
             });
             this.colorPickerButton = colorPickerBtn;
 
-            const editBtn = new ShapeEditorWidgetButton(this, 'fa-pencil-alt');
+            const editBtn = new ShapeEditorWidgetButton(this.container, 'fa-pencil-alt');
             editBtn.addEventListener('click', () => {
                 let editorWidgets = this.utilities.layer.canvasGizmos.filter(gizmos => gizmos instanceof ShapeEditorWidget)
                     .filter(gizmos => gizmos.shape.id != this.shape.id);
@@ -307,7 +321,7 @@ function initializeShapeWidget(scope) {
 
             this.editButton = editBtn;
 
-            const deleteBtn = new ShapeEditorWidgetButton(this, 'fa-trash-alt');
+            const deleteBtn = new ShapeEditorWidgetButton(this.container, 'fa-trash-alt');
             deleteBtn.addEventListener('click', () => {
                 if (this.utilities.parentExtension.isCreating) {
                     this.utilities.defaultTools.polygonTool.cancelEdit(); //!<<< Prevent starting creating poly after clicking on `Delete`.
@@ -331,6 +345,10 @@ function initializeShapeWidget(scope) {
 
             delete this.deleteButton;
             this.deleteButton = null;
+
+            this.toolbar.terminate();
+            delete this.toolbar;
+            this.toolbar = null;
 
             delete this.shape.editorWidget;
             this.shape.editorWidget = null;
@@ -941,8 +959,8 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
 
     async initialize() {
         await Promise.all([
-            loadCSS('https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.css'),
-            Autodesk.Viewing.Private.theResourceLoader.loadScript('https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.js')
+            loadCSS('https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/nano.min.css'),
+            Autodesk.Viewing.Private.theResourceLoader.loadScript('https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.es5.min.js')
         ]);
 
         const utilities = new AreaPlansUtilities();
