@@ -845,6 +845,7 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
     #isViewing = false;
     #isCreating = false;
     #isEditing = false;
+    #style = null;
 
     constructor(viewer, options) {
         options = options || { autoLoad: true };
@@ -895,6 +896,7 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
 
     enterCreateMode() {
         this.leaveViewingMode();
+        this.#defaultTools.polygonTool.setStyles(this.#style, true);
         this.utilities.changeTool(this.#defaultTools.polygonTool.getName());
         this.utilities.undoStack.addEventListener(
             Autodesk.Edit2D.UndoStack.AFTER_ACTION,
@@ -993,6 +995,9 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
         await utilities.initialize(this);
         this.utilities = utilities;
 
+        // Change style for creating mode
+        this.#style = new Autodesk.Edit2D.Style({ lineWidth: 2.0 });
+
         const tool = new AreaPlansDefaultTool(utilities);
         this.viewer.toolController.registerTool(tool);
         this.viewingTool = tool;
@@ -1014,6 +1019,7 @@ class AreaPlansExtension extends Autodesk.Viewing.Extension {
         this.#isCreating = false;
         this.#isEditing = false;
         this.#isViewing = false;
+        this.#style = null;
     }
 
     async loadMarkups() {
