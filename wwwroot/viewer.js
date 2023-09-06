@@ -1,7 +1,5 @@
 /// import * as Autodesk from "@types/forge-viewer";
 
-import './AreaPlansExt.js';
-
 async function getAccessToken(callback) {
     try {
         const resp = await fetch('/api/auth/token');
