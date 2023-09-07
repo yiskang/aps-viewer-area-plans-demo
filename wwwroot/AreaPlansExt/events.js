@@ -17,19 +17,31 @@
 /////////////////////////////////////////////////////////////////////
 
 /**
- * Fires when the area markup tool has been changed.
+ * Fires when the area markup tool has been changed
  * @event Autodesk.Das.AreaPlans.MODE_CHANGED_EVENT
  * @type {object}
- * @property {string} type - Event type.
- * @property {Autodesk.Viewing.Viewer3D} target - Target that fires this event.*
- * @property {(create|edit|viewing)} mode - Tool mode name.
+ * @property {string} type - Event type
+ * @property {Autodesk.Viewing.Viewer3D} target - Target that fires this event
+ * @property {(create|edit|viewing)} mode - Tool mode name
  */
 export const MODE_CHANGED_EVENT = 'areaMarkupToolModeChanged';
 /**
- * Fires when the remote markups data has been loaded.
+ * Fires when the remote markups data has been loaded
  * @event Autodesk.Das.AreaPlans.MARKUP_LOADED_EVENT
  * @type {object}
- * @property {string} type - Event type.
- * @property {Autodesk.Viewing.Viewer3D} target - Target that fires this event.*
+ * @property {string} type - Event type
+ * @property {Autodesk.Viewing.Viewer3D} target - Target that fires this event
  */
 export const MARKUP_LOADED_EVENT = 'areaMarkupLoaded';
+/**
+ * Fires when error is catched in area plan ext
+ * @event Autodesk.Das.AreaPlans.ERROR_CATCHED_EVENT
+ * @type {object}
+ * @property {string} type - Event type
+ * @property {Autodesk.Viewing.Viewer3D} target - Target that fires this event
+ * @property {string} code - Error code
+ * @property {string} message - Error message
+ * @property {string} detail - Error detail
+ * @property {Error} internalError - Internal error object
+ */
+export const ERROR_OCCURRED_EVENT = 'errorOccurred';

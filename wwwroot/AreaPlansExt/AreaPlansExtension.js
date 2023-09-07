@@ -23,7 +23,7 @@ import AreaPlansDefaultTool, { AreaPlansDefaultToolName } from './AreaPlansDefau
 import AreaPlansPolygonToolExtra, { AreaPlansPolygonToolExtraName } from './AreaPlansPolygonToolExtra.js';
 import AreaPlansRemoteDataProvider from './AreaPlansRemoteDataProvider.js';
 import { loadCSS } from './utils.js';
-import { MODE_CHANGED_EVENT, MARKUP_LOADED_EVENT } from './events.js';
+import { MODE_CHANGED_EVENT, MARKUP_LOADED_EVENT, ERROR_OCCURRED_EVENT } from './events.js';
 
 /**
  * Area Plan Core extension
@@ -356,6 +356,18 @@ export default class AreaPlansExtension extends Autodesk.Viewing.Extension {
         await this.loadMarkups();
     }
 
+    #reportError(message, detail, internalError, code = 'AJAX') {
+        const error = {
+            message,
+            detail,
+            internalError,
+            code
+        };
+
+        this.viewer.dispatchEvent({ type: ERROR_OCCURRED_EVENT, ...error });
+        return error;
+    }
+
     /**
      * Send newly created area markups to sever for saving into server storage
      */
@@ -377,7 +389,13 @@ export default class AreaPlansExtension extends Autodesk.Viewing.Extension {
                 let json = await AreaPlansRemoteDataProvider.addMarkup(data);
                 markup.dbId = json.id;
             } catch (ex) {
-                console.error(`Failed to save the markup`, markup, ex);
+                let path = this.utilities.serialize(markup);
+                const error = this.#reportError(
+                    'Failed to save the markup',
+                    `data: \`${path}\``,
+                    JSON.parse(ex.message)
+                );
+                console.error(error, path);
             }
         });
     }
@@ -411,7 +429,12 @@ export default class AreaPlansExtension extends Autodesk.Viewing.Extension {
 
                 await AreaPlansRemoteDataProvider.updateMarkup(dbId, data);
             } catch (ex) {
-                console.error(`Failed to update the markup with id: \`${shape.dbId}\``, shape, ex);
+                const error = this.#reportError(
+                    `Failed to update the markup with id: \`${shape.dbId}\``,
+                    ex?.message,
+                    ex
+                );
+                console.error(error, shape);
             }
         });
     }
@@ -429,7 +452,12 @@ export default class AreaPlansExtension extends Autodesk.Viewing.Extension {
                 try {
                     await AreaPlansRemoteDataProvider.deleteMarkup(dbId);
                 } catch (ex) {
-                    console.error(`Failed to delete the markup with id: \`${dbId}\``, ex);
+                    const error = this.#reportError(
+                        `Failed to delete the markup with id: \`${dbId}\``,
+                        ex?.message,
+                        ex
+                    );
+                    console.error(error);
                 }
             });
     }
@@ -495,5 +523,6 @@ AutodeskNamespace('Autodesk.Das.AreaPlans');
 Autodesk.Das.AreaPlans.AreaPlansExtension = AreaPlansExtension;
 Autodesk.Das.AreaPlans.MODE_CHANGED_EVENT = MODE_CHANGED_EVENT;
 Autodesk.Das.AreaPlans.MARKUP_LOADED_EVENT = MARKUP_LOADED_EVENT;
+Autodesk.Das.AreaPlans.ERROR_OCCURRED_EVENT = ERROR_OCCURRED_EVENT;
 
 Autodesk.Viewing.theExtensionManager.registerExtension('Autodesk.Das.AreaPlansExtension', AreaPlansExtension);

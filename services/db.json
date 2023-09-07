@@ -22,6 +22,30 @@
       "guid": "e1979f5f-8935-44f5-9d7c-74c5fb097246",
       "svg": "<path d=\"M 0.24375914254590728,0.7368904453762065 H 0.37422179444711173 V 0.6351420705578007 H 0.24375914254590728 Z\" stroke=\"rgb(0,0,128)\" fill=\"rgb(0,128,0)\" stroke-width=\"2\" fill-opacity=\"0.2\"/>",
       "id": 13
+    },
+    {
+      "urn": "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6cG9jLXNhbmRib3gta3dlajd4cGJncDYzeDRobDMzNXk2bTI2b2FrZ2dvZi11cy8xLXFjYWQxLnBkZg",
+      "guid": "284a5ff7-25e4-4336-ae57-349dd3892c95",
+      "svg": "<path d=\"M 0.17945573196214226,0.8660737476438289 H 0.2270878931639702 V 0.8252461929028966 H 0.17945573196214226 Z\" stroke=\"rgb(0,0,128)\" fill=\"rgb(0,128,0)\" stroke-width=\"2\" fill-opacity=\"0.2\"/>",
+      "id": 14
+    },
+    {
+      "urn": "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6cG9jLXNhbmRib3gta3dlajd4cGJncDYzeDRobDMzNXk2bTI2b2FrZ2dvZi11cy8xLXFjYWQxLnBkZg",
+      "guid": "284a5ff7-25e4-4336-ae57-349dd3892c95",
+      "svg": "<path d=\"M 0.46822751835865745,0.762842340707339 H 0.5416728456597023 V 0.6803037862258169 H 0.46822751835865745 Z\" stroke=\"rgb(0,0,128)\" fill=\"rgb(128,0,0)\" stroke-width=\"2\" fill-opacity=\"0.2\"/>",
+      "id": 15
+    },
+    {
+      "urn": "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6cG9jLXNhbmRib3gta3dlajd4cGJncDYzeDRobDMzNXk2bTI2b2FrZ2dvZi11cy8xLXFjYWQxLnBkZg",
+      "guid": "284a5ff7-25e4-4336-ae57-349dd3892c95",
+      "svg": "<path d=\"M 0.1256603323508208,0.6915460720892072 H 0.34291140203887616 V 0.6793465431256169 H 0.1256603323508208 Z\" stroke=\"rgb(0,0,128)\" fill=\"rgb(0,0,128)\" stroke-width=\"2\" fill-opacity=\"0.2\"/>",
+      "id": 18
+    },
+    {
+      "urn": "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6cG9jLXNhbmRib3gta3dlajd4cGJncDYzeDRobDMzNXk2bTI2b2FrZ2dvZi11cy8xLXFjYWQxLnBkZg",
+      "guid": "284a5ff7-25e4-4336-ae57-349dd3892c95",
+      "svg": "<path d=\"M 0.34833341041978977,0.9384499036851154 H 0.4225653569945799 V 0.9000967270150455 H 0.34833341041978977 Z\" stroke=\"rgb(0,0,128)\" fill=\"rgb(0,0,128)\" stroke-width=\"2\" fill-opacity=\"0.2\"/>",
+      "id": 20
     }
   ]
 }

@@ -1,9 +1,24 @@
 import { initViewer, loadModel } from './viewer.js';
 
-initViewer(document.getElementById('preview')).then(viewer => {
+
+
+initViewer(document.getElementById('preview')).then(async viewer => {
     const urn = window.location.hash?.substring(1);
     setupModelSelection(viewer, urn);
-    setupModelUpload(viewer);
+
+    try {
+        const resp = await fetch('/api/state');
+        if (!resp.ok) {
+            throw new Error(await resp.text());
+        }
+        const serverState = await resp.json();
+        if (serverState?.mode !== 'Demonstration') {
+            setupModelUpload(viewer);
+        }
+    } catch (err) {
+        console.error('Cannot get demo server state', err);
+    }
+
     setupAreaPlans(viewer);
 });
 
@@ -71,6 +86,8 @@ async function setupModelUpload(viewer) {
     const upload = document.getElementById('upload');
     const input = document.getElementById('input');
     const models = document.getElementById('models');
+
+    upload.style.display = '';
     upload.onclick = () => input.click();
     input.onchange = async () => {
         const file = input.files[0];
@@ -150,6 +167,17 @@ async function onModelSelected(viewer, urn) {
                             } else {
                                 addAreaPlansBtn.innerText = 'Add Area';
                             }
+                        });
+
+                    viewer.addEventListener(
+                        Autodesk.Das.AreaPlans.ERROR_OCCURRED_EVENT,
+                        (event) => {
+                            let message = event.message;
+                            if (event.internalError && event.internalError.code == 403)
+                                message = `${event.internalError.detail} (Refresh page to continue playing this demo)`;
+
+                            showNotification(message);
+                            //console.warn(`Error Occurred (${event.code}):`, event.message, event.detail, event.internalError);
                         });
 
                     await areaPlansExt.loadMarkups();
