@@ -1,15 +1,14 @@
-# Simple Viewer (Node.js)
+# Simple Viewer Area Plan (Node.js)
 
 ![platforms](https://img.shields.io/badge/platform-windows%20%7C%20osx%20%7C%20linux-lightgray.svg)
 [![node.js](https://img.shields.io/badge/Node.js-16.16-blue.svg)](https://nodejs.org)
 [![npm](https://img.shields.io/badge/npm-8.11-blue.svg)](https://www.npmjs.com/)
 [![license](https://img.shields.io/:license-mit-green.svg)](https://opensource.org/licenses/MIT)
 
-[Autodesk Platform Services](https://aps.autodesk.com) application built by following
-the [Simple Viewer](https://tutorials.autodesk.io/tutorials/simple-viewer/) tutorial
-from https://tutorials.autodesk.io.
 
-![thumbnail](thumbnail.png)
+This [Autodesk Platform Services](https://aps.autodesk.com) viewer sample demonstrates how to use [Edit2D](https://aps.autodesk.com/en/docs/viewer/v7/developers_guide/advanced_options/edit2d-setup/) extension to manage area plans.
+
+![thumbnail](thumbnail.gif)
 
 ## Development
 
