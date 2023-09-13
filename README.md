@@ -19,6 +19,9 @@ This [Autodesk Platform Services](https://aps.autodesk.com) viewer sample demons
 - Terminal (for example, [Windows Command Prompt](https://en.wikipedia.org/wiki/Cmd.exe)
 or [macOS Terminal](https://support.apple.com/guide/terminal/welcome/mac))
 
+### Technology Architecture Diagram
+![architecture](technology-architecture.jpeg)
+
 ### Setup & Run
 
 - Clone this repository
