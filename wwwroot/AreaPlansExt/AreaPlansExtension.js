@@ -20,6 +20,7 @@
 
 import AreaPlansUtilities from './AreaPlansUtilities.js';
 import AreaPlansDefaultTool, { AreaPlansDefaultToolName } from './AreaPlansDefaultTool.js';
+import AreaPlansPolygonToolExtra, { AreaPlansPolygonToolExtraName } from './AreaPlansPolygonToolExtra.js';
 import AreaPlansRemoteDataProvider from './AreaPlansRemoteDataProvider.js';
 import { loadCSS } from './utils.js';
 import { MODE_CHANGED_EVENT, MARKUP_LOADED_EVENT } from './events.js';
@@ -139,6 +140,7 @@ export default class AreaPlansExtension extends Autodesk.Viewing.Extension {
         this.leaveViewingMode();
         this.#defaultTools.polygonTool.setStyles(this.#style, true);
         this.utilities.changeTool(this.#defaultTools.polygonTool.getName());
+        this.viewer.toolController.activateTool(AreaPlansPolygonToolExtraName);
         this.utilities.undoStack.addEventListener(
             Autodesk.Edit2D.UndoStack.AFTER_ACTION,
             this.#onShapeAdded
@@ -160,6 +162,7 @@ export default class AreaPlansExtension extends Autodesk.Viewing.Extension {
             this.#onShapeAdded
         );
 
+        this.viewer.toolController.deactivateTool(AreaPlansPolygonToolExtraName);
         this.enterViewingMode();
         this.#isCreating = false;
     }
@@ -277,6 +280,10 @@ export default class AreaPlansExtension extends Autodesk.Viewing.Extension {
         this.viewer.toolController.registerTool(tool);
         this.viewingTool = tool;
 
+        const extraPolygonTool = new AreaPlansPolygonToolExtra(utilities);
+        this.viewer.toolController.registerTool(extraPolygonTool);
+        this.extraPolygonTool = extraPolygonTool;
+
         return true;
     }
 
@@ -285,8 +292,13 @@ export default class AreaPlansExtension extends Autodesk.Viewing.Extension {
      * @returns {boolean} True if the termination is successful
      */
     terminate() {
-        if (!this.viewingTool)
+        if (!this.viewingTool || !this.extraPolygonTool)
             return false;
+
+        this.viewer.toolController.deactivateTool(AreaPlansPolygonToolExtraName);
+        this.viewer.toolController.deregisterTool(this.extraPolygonTool);
+        delete this.extraPolygonTool;
+        this.extraPolygonTool = null;
 
         this.viewer.toolController.deactivateTool(AreaPlansDefaultToolName);
         this.viewer.toolController.deregisterTool(this.viewingTool);
