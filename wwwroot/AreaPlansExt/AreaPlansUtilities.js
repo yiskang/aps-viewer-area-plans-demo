@@ -21,6 +21,7 @@
 import { EDIT2D_EXT_ID } from './globals.js';
 import { initializeShapeWidget } from './UI/ShapeEditorWidget.js';
 import { parseSvgStyle } from './utils.js';
+import { AreaPlansPolygonToolExtraName } from './AreaPlansPolygonToolExtra.js';
 
 /**
  * Utilities for manipulating area markups
@@ -208,6 +209,15 @@ export default class AreaPlansUtilities {
         // deactivate any previous edit2d tool
         if (isEdit2D) {
             controller.deactivateTool(activeTool.getName());
+            activeTool = null;
+        }
+
+        let isAreaPlanExtra = activeTool && activeTool.getName().startsWith(AreaPlansPolygonToolExtraName);
+
+        // deactivate any previous extra tool
+        if (isAreaPlanExtra) {
+            controller.deactivateTool(activeTool.getName());
+            controller.deactivateTool(this.defaultTools.polygonTool.getName());
             activeTool = null;
         }
 

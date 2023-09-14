@@ -141,6 +141,7 @@ export default class AreaPlansExtension extends Autodesk.Viewing.Extension {
         this.#defaultTools.polygonTool.setStyles(this.#style, true);
         this.utilities.changeTool(this.#defaultTools.polygonTool.getName());
         this.viewer.toolController.activateTool(AreaPlansPolygonToolExtraName);
+
         this.utilities.undoStack.addEventListener(
             Autodesk.Edit2D.UndoStack.AFTER_ACTION,
             this.#onShapeAdded
